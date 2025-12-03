@@ -19,31 +19,40 @@ app.add_middleware(
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-SYSTEM_PROMPT = """
-You are a nutrition AI.
-Identify foods, estimate grams, calories, protein, carbs, and fat.
-Return clean Markdown.
+# Short, token-efficient system prompt
+SYSTEM_PROMPT = """You are a nutrition assistant.
+Given one food photo, briefly:
+- list foods,
+- estimate grams,
+- give calories, protein, carbs, fat per item,
+- give totals.
+Reply in short Markdown. Be concise.
 """
 
+
 def pil_to_b64(image):
+    """Convert PIL image to base64 data URL (JPEG)."""
     buffer = BytesIO()
-    image.convert("RGB").save(buffer, format="JPEG")
+    image.convert("RGB").save(buffer, format="JPEG", optimize=True, quality=80)
     encoded = base64.b64encode(buffer.getvalue()).decode()
     return f"data:image/jpeg;base64,{encoded}"
 
+
 @app.post("/analyze")
 async def analyze(file: UploadFile = File(...), notes: str = Form("")):
+    # Load image from upload
     image = Image.open(BytesIO(await file.read()))
     image_b64 = pil_to_b64(image)
 
-    user_msg = "Analyze the food photo."
-
+    # Very short user message to save tokens
+    user_msg = "Food photo. Give concise nutrition estimate."
     if notes.strip():
-        user_msg += " Notes: " + notes
+        user_msg += " Notes: " + notes.strip()
 
     try:
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model="gpt-4o-mini",             # cheap model
+            max_completion_tokens=320,       # limit reply length
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {
@@ -60,4 +69,5 @@ async def analyze(file: UploadFile = File(...), notes: str = Form("")):
         return {"result": result}
 
     except Exception as e:
+        # Return error text so frontend can show it nicely
         return {"error": str(e)}
