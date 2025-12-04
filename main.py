@@ -11,7 +11,7 @@ app = FastAPI()
 # Allow your website to call this backend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],   # allow all origins (your site, others, etc.)
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -29,14 +29,12 @@ Given one food photo, briefly:
 Reply in short Markdown. Be concise.
 """
 
-
 def pil_to_b64(image):
     """Convert PIL image to base64 data URL (JPEG)."""
     buffer = BytesIO()
     image.convert("RGB").save(buffer, format="JPEG", optimize=True, quality=80)
     encoded = base64.b64encode(buffer.getvalue()).decode()
     return f"data:image/jpeg;base64,{encoded}"
-
 
 @app.post("/analyze")
 async def analyze(file: UploadFile = File(...), notes: str = Form("")):
@@ -51,8 +49,8 @@ async def analyze(file: UploadFile = File(...), notes: str = Form("")):
 
     try:
         response = client.chat.completions.create(
-            model="gpt-4o-mini",             # cheap model
-            max_completion_tokens=320,       # limit reply length
+            model="gpt-4o-mini",        # light, cheap model
+            max_tokens=320,             # ✅ correct param name
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {
@@ -69,5 +67,5 @@ async def analyze(file: UploadFile = File(...), notes: str = Form("")):
         return {"result": result}
 
     except Exception as e:
-        # Return error text so frontend can show it nicely
+        # Return error string so frontend can show it
         return {"error": str(e)}
